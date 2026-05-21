@@ -1,0 +1,40 @@
+# Recovery output directories
+recovery_output_*/
+*.mdt
+*.MDT
+
+# Temporary files
+*.raw
+*.h264
+*.wav
+*.tmp
+
+# Reference files - do NOT commit large binaries
+*.mov
+*.MOV
+*.mp4
+
+# Logs
+*.log
+recovery_log.txt
+
+# macOS
+.DS_Store
+._*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+Thumbs.db
