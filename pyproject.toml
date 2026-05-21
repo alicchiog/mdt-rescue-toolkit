@@ -1,0 +1,68 @@
+# pyproject.toml — packaging configuration for mdt-rescue
+#
+# This file replaces the old setup.py / setup.cfg model with the
+# modern PEP 517 / PEP 621 standard. It declares how the package
+# is built, who it is, what it needs, and what optional features
+# it supports.
+#
+# To install in development mode (editable):
+#     pip install -e .
+#
+# To install with development tools (pytest, build):
+#     pip install -e ".[dev]"
+#
+# To install with the GUI layer (PySide6, ~200 MB):
+#     pip install -e ".[gui]"
+#
+# To install everything:
+#     pip install -e ".[dev,gui]"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mdt-rescue"
+version = "0.2.0.dev0"
+description = "Profile-based recovery toolkit for unfinalized Panasonic .MDT video files"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Gianpiero Alicchio", email = "127759069+alicchiog@users.noreply.github.com" }
+]
+keywords = ["video", "recovery", "panasonic", "gh5s", "mdt", "h264", "avc-intra"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Video",
+    "Topic :: Multimedia :: Video :: Conversion",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "build>=1.2",
+]
+gui = [
+    "PySide6>=6.6",
+]
+
+[project.urls]
+Homepage = "https://github.com/alicchiog/mdt-rescue-toolkit"
+Repository = "https://github.com/alicchiog/mdt-rescue-toolkit"
+Issues = "https://github.com/alicchiog/mdt-rescue-toolkit/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["mdt_rescue*"]
+exclude = ["scripts*", "tests*", "docs*", "examples*", "profiles*", ".venv*"]
