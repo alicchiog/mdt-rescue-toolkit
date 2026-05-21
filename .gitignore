@@ -38,3 +38,7 @@ venv/
 
 # OS
 Thumbs.db
+
+# Python distribution / packaging artifacts (PEP 517 build outputs)
+dist/
+build/
