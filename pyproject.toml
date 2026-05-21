@@ -27,7 +27,7 @@ version = "0.2.0.dev0"
 description = "Profile-based recovery toolkit for unfinalized Panasonic .MDT video files"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
 authors = [
     { name = "Gianpiero Alicchio", email = "127759069+alicchiog@users.noreply.github.com" }
 ]
@@ -35,7 +35,6 @@ keywords = ["video", "recovery", "panasonic", "gh5s", "mdt", "h264", "avc-intra"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: End Users/Desktop",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: MacOS",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
