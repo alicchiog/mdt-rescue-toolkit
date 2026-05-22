@@ -42,3 +42,7 @@ Thumbs.db
 # Python distribution / packaging artifacts (PEP 517 build outputs)
 dist/
 build/
+
+# Baselines: explicit reference artifacts under tests/baselines/
+# Override the patterns above (*.log, *.raw, *.h264, *.wav, *.mov, *.mp4)
+!tests/baselines/**

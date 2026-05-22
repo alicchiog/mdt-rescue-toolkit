@@ -1,0 +1,131 @@
+
+============================================================
+MDT Rescue Toolkit v0.1.0
+Profile: GH5S FHD 25p ALL-I 200M
+============================================================
+[2026-05-22 12:19:36] Checking dependencies...
+[2026-05-22 12:19:36]   ffmpeg:   ffmpeg version 8.1.1 Copyright (c) 2000-2026 the FFmpeg developers
+[2026-05-22 12:19:36]   ffprobe:  ffprobe version 8.1.1 Copyright (c) 2007-2026 the FFmpeg developers
+[2026-05-22 12:19:36]   python3:  Python 3.11.2
+[2026-05-22 12:19:36] Inputs validated:
+[2026-05-22 12:19:36]   Broken:    /tmp/test_100mb.mdt
+[2026-05-22 12:19:36]   Reference: /Volumes/Backup5T/recupero-video/sano.mov
+[2026-05-22 12:19:36] Disk space check:
+[2026-05-22 12:19:36]   Broken file size: 0 GB
+[2026-05-22 12:19:36]   Required (3x):    0 GB
+[2026-05-22 12:19:36]   Available:        9 GB
+[2026-05-22 12:19:36] Output directory: /tmp/recovery_output_test_100mb
+[2026-05-22 12:19:36] Log file:         /tmp/recovery_output_test_100mb/recovery_log.txt
+[2026-05-22 12:19:36] 
+[2026-05-22 12:19:36] STEP 1/7: Extracting SPS/PPS from reference
+[2026-05-22 12:19:36] -----------------------------------------------------------
+[2026-05-22 12:19:36] Converting reference MOV to Annex B...
+[2026-05-22 12:22:59] Extracting SPS and PPS NAL units...
+[2026-05-22 12:23:01] SPS/PPS prefix written: /tmp/recovery_output_test_100mb/test_100mb_sps_pps_prefix.h264
+[2026-05-22 12:23:01] 
+[2026-05-22 12:23:01] STEP 2/7: Extracting video NAL units from .MDT (streaming)
+[2026-05-22 12:23:01] -----------------------------------------------------------
+[2026-05-22 12:23:01] This may take 20-40 minutes depending on disk speed.
+Input:  /tmp/test_100mb.mdt
+Output: /tmp/recovery_output_test_100mb/test_100mb_video.h264
+Total size to scan: 0.10 GB
+Chunk size: 256 MB, fallback overlap 10 MB
+
+  chunk#1 100.0%  ( 0.10 GB read)  frames=104  nals=1,144  written=99MB  bad=0  SPS=N  PPS=N  tail=0.1MB
+
+============================================================
+DONE
+============================================================
+Frames with VCL:       104
+NAL units written:     1,144
+Output size:           99.2 MB (0.10 GB)
+Bad/empty blocks:      0
+First SPS in .MDT:     NO
+First PPS in .MDT:     NO
+
+NAL types found:
+  type  5 (IDR     ):      1,040
+  type  9 (AUD     ):        104
+[2026-05-22 12:23:01] Video H.264 written: /tmp/recovery_output_test_100mb/test_100mb_video.h264
+[2026-05-22 12:23:01] 
+[2026-05-22 12:23:02] STEP 3/7: Concatenating SPS/PPS prefix + video
+[2026-05-22 12:23:02] -----------------------------------------------------------
+[2026-05-22 12:23:02] Concatenated: /tmp/recovery_output_test_100mb/test_100mb_video_with_header.h264
+[2026-05-22 12:23:02] 
+[2026-05-22 12:23:02] STEP 4/7: Wrapping video into MOV container
+[2026-05-22 12:23:02] -----------------------------------------------------------
+[2026-05-22 12:23:03] Video-only MOV written: /tmp/recovery_output_test_100mb/test_100mb_video_only.mov
+[2026-05-22 12:23:03] 
+[2026-05-22 12:23:03] STEP 5/7: Extracting audio chunks from .MDT (streaming)
+[2026-05-22 12:23:03] -----------------------------------------------------------
+Input:  /tmp/test_100mb.mdt
+Output: /tmp/recovery_output_test_100mb/test_100mb_audio.raw
+Total size to scan: 0.10 GB
+Chunk size: 256 MB, fallback overlap 10 MB
+
+  chunk#1 100.0%  ( 0.10 GB read)  frames=104  normal=8  silence=0  unhandled=0  audio=0.7MB
+
+======================================================================
+DONE
+======================================================================
+Frames scanned:                104
+Zero gaps (no audio):          96
+Normal audio chunks:           8
+Silence chunks inserted:       0
+Unhandled anomalies:           0
+Total audio chunks (effective): 8
+Audio bytes:                   737,280 (0.70 MB)
+audio_bytes % 4 = 0 (must be 0)
+
+Video duration:        4.160 sec
+Audio duration:        3.840 sec
+Drift (audio - video): -0.320 sec
+
+[2026-05-22 12:23:03] Converting raw PCM to WAV...
+[2026-05-22 12:23:03] Audio WAV written: /tmp/recovery_output_test_100mb/test_100mb_audio.wav
+[2026-05-22 12:23:03] 
+[2026-05-22 12:23:03] STEP 6/7: Muxing final video + audio
+[2026-05-22 12:23:03] -----------------------------------------------------------
+[2026-05-22 12:23:04] FINAL RESCUED FILE: /tmp/recovery_output_test_100mb/test_100mb_RESCUED.mov
+[2026-05-22 12:23:04] 
+[2026-05-22 12:23:04] STEP 7/7: Verifying output
+[2026-05-22 12:23:04] -----------------------------------------------------------
+============================================================
+Verifying: /tmp/recovery_output_test_100mb/test_100mb_RESCUED.mov
+============================================================
+
+VIDEO STREAM
+  codec:        h264
+  profile:      High 4:2:2 Intra
+  resolution:   1920x1080
+  pixel format: yuv422p10le
+  frames:       96
+  duration:     3.840000 s
+
+AUDIO STREAM
+  codec:        pcm_s16be
+  sample rate:  48000 Hz
+  channels:     2
+  duration:     3.840000 s
+
+PLAUSIBILITY CHECKS (against validated GH5S FHD 25p profile)
+  [OK]   video codec: h264
+  [OK]   width: 1920
+  [OK]   height: 1080
+  [OK]   pix_fmt: yuv422p10le
+  [OK]   audio codec: pcm_s16be
+  [OK]   sample rate: 48000
+  [OK]   channels: 2
+
+Verification: PASSED
+[2026-05-22 12:23:05] 
+[2026-05-22 12:23:05] ============================================================
+[2026-05-22 12:23:05] RECOVERY COMPLETED
+[2026-05-22 12:23:05] ============================================================
+[2026-05-22 12:23:05] Elapsed: 3m 29s
+[2026-05-22 12:23:05] Final file: /tmp/recovery_output_test_100mb/test_100mb_RESCUED.mov
+[2026-05-22 12:23:05] 
+[2026-05-22 12:23:05] Intermediate files have been kept in /tmp/recovery_output_test_100mb.
+[2026-05-22 12:23:05] You may delete them once you've verified the rescued MOV works.
+[2026-05-22 12:23:05] ============================================================
+./recover_gh5s_fhd25_alli.sh /tmp/test_100mb.mdt   2,38s user 5,16s system 3% cpu 3:29,38 total

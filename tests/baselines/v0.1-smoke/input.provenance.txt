@@ -1,0 +1,46 @@
+Input provenance for v0.1 smoke baseline
+=========================================
+
+Source MDT file:
+  /Volumes/Backup5T/P1194247.mdt
+  size:   35332816896 bytes (~32.9 GiB)
+  mtime:  2026-05-11 16:55
+
+How test_100mb.mdt was created:
+  dd if="/Volumes/Backup5T/P1194247.mdt" \
+     of=/tmp/test_100mb.mdt \
+     bs=1m count=100
+
+  size:   104857600 bytes (exactly 100 MiB)
+  sha256: 3d1bc646f67b9a6d3d1c6be0ac8d46b521468088b17013b5c26c914b7019d1ce
+
+Reference MOV, sane file from same GH5S session:
+  (used by v0.1 pipeline to extract SPS/PPS for H.264 reconstruction)
+
+  /Volumes/Backup5T/recupero-video/sano.mov
+  size:   1138745337 bytes
+  profile: H.264 High 4:2:2 Intra, 1920x1080, 25p, 200 Mbps
+  codec_tag_string: avc1 (QuickTime standard tag; .mdt file uses ai12)
+  audio: pcm_s16be, 48000 Hz, 2 channels, 16-bit
+  camera: Panasonic DC-GH5S
+  duration: 45.6 s, 1140 frames
+
+Recovery command:
+  ./recover_gh5s_fhd25_alli.sh \
+    /tmp/test_100mb.mdt \
+    /Volumes/Backup5T/recupero-video/sano.mov
+
+Recovered output (path determined automatically by the v0.1 script):
+  /tmp/recovery_output_test_100mb/test_100mb_RESCUED.mov
+
+Observed result:
+  exit_code: 0
+  verification: PASSED (all plausibility checks)
+  elapsed: ~3m 29s on macOS Intel + ffmpeg 8.1.1
+  (most time spent on USB I/O reading sano.mov for SPS/PPS extraction)
+
+Expected recovered profile:
+  video: H.264 High 4:2:2 Intra, 1920x1080, 25 fps, yuv422p10le
+  audio: pcm_s16be, 48000 Hz, stereo
+  duration: 3.840000 s
+  frames: 96
