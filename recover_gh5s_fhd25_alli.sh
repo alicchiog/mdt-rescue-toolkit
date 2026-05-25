@@ -333,7 +333,7 @@ step_verify() {
     log_both "STEP 7/7: Verifying output"
     log_both "-----------------------------------------------------------"
 
-    bash "$SCRIPT_DIR/scripts/verify_output.sh" "$FINAL_MOV" 2>&1 | tee -a "$LOG_FILE" \
+    python3 "$SCRIPT_DIR/scripts/verify_output.py" "$FINAL_MOV" 2>&1 | tee -a "$LOG_FILE" \
         || log_both "WARNING: Verification reported issues. Inspect the file manually."
 }
 
