@@ -3,256 +3,250 @@
 extract_audio_gh5s_fhd25_alli.py
 ================================
 
-Extracts PCM s16be 48kHz stereo audio from a Panasonic .MDT file
-recorded by a DC-GH5S in FHD 1920x1080 25p ALL-I 200M mode.
+Thin CLI wrapper around :mod:`mdt_rescue.engine.audio`.
 
-Audio layout in the GH5S .MDT (validated empirically on one file)
------------------------------------------------------------------
-- Between consecutive video AUD anchors there is a "gap".
-- Most gaps are zero bytes (no audio inline at that frame).
-- Every ~12 video frames a gap of about 92208 bytes appears:
-    [ 92160 bytes of PCM s16be stereo 48kHz ] + [ 48 bytes timecode ]
-  i.e. 480 ms of audio + 12 uint32-BE incrementing counters.
-- Three "fat" anomalous gaps were observed in the validated 33 GB file,
-  positioned exactly 12 frames after the previous audio chunk. These
-  are handled by injecting 92160 bytes of silence (0x00) to keep the
-  audio timeline aligned with video. Unhandled anomalies (gaps that
-  don't fit the cycle) are logged but NOT silenced.
+Delegates audio extraction to the engine and reproduces the legacy
+stdout byte-for-byte.  The engine performs all I/O and counter
+bookkeeping; this wrapper is responsible only for argv parsing, exit
+codes, and presentation of the legacy progress/footer/drift/anomaly
+output consumed by ``recover_gh5s_fhd25_alli.sh``.
 
-The script streams the input in 256 MB chunks; the .MDT is never loaded
-fully into RAM.
+Legacy contract preserved:
 
-Part of MDT Rescue Toolkit - https://github.com/<your-user>/mdt-rescue-toolkit
+* argv: ``<input.mdt> <output.raw>`` (exactly 2 positional arguments)
+* exit 0 on success
+* exit 1 on usage error, with the legacy usage message printed to stdout
+* stdout layout: header (block A), per-chunk progress (block B),
+  separator + DONE + counter footer (block C), drift summary (block D),
+  handled anomalies list with trailing blank (block E, conditional),
+  unhandled anomalies list with no trailing blank (block F, conditional)
+
+The original audio-extraction logic now lives in
+``mdt_rescue/engine/audio.py``.  This script remains the v0.1 CLI entry
+point and is exercised by the v0.1 recovery pipeline.
+
+Part of MDT Rescue Toolkit - https://github.com/alicchiog/mdt-rescue-toolkit
 """
 
-import sys
+from __future__ import annotations
+
 import os
-import struct
-
-AUD_ANCHOR = b"\x00\x00\x00\x02\x09\x10"
-VALID_TYPES = {1, 5, 6, 7, 8, 9, 12}
-MAX_NAL_SIZE = 5 * 1024 * 1024
-MIN_NAL_SIZE = 1
-
-EXPECTED_AUDIO_PAYLOAD = 92160
-TIMECODE_SIZE = 48
-EXPECTED_GAP_SIZE = EXPECTED_AUDIO_PAYLOAD + TIMECODE_SIZE  # 92208
-SILENCE_BLOCK = b"\x00" * EXPECTED_AUDIO_PAYLOAD
-
-CHUNK_SIZE = 256 * 1024 * 1024
-OVERLAP = 10 * 1024 * 1024
+import sys
+from pathlib import Path
 
 
-def is_valid_nal_header(b):
-    forbidden = (b >> 7) & 1
-    nal_type = b & 0x1F
-    return forbidden == 0 and nal_type in VALID_TYPES
+# ---------------------------------------------------------------------
+# Fallback import guard
+# ---------------------------------------------------------------------
+#
+# Allows running this script without an active virtualenv: if the
+# ``mdt_rescue`` package cannot be found on ``sys.path``, prepend the
+# repository root (one level above ``scripts/``) and retry.
+
+try:
+    from mdt_rescue.engine.audio import (
+        AudioExtractionResult,
+        AudioProgressEvent,
+        DEFAULT_CHUNK_SIZE,
+        DEFAULT_OVERLAP,
+        extract_audio,
+    )
+except ImportError:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from mdt_rescue.engine.audio import (
+        AudioExtractionResult,
+        AudioProgressEvent,
+        DEFAULT_CHUNK_SIZE,
+        DEFAULT_OVERLAP,
+        extract_audio,
+    )
 
 
-def read_u32be(buf, pos):
-    return struct.unpack(">I", buf[pos:pos + 4])[0]
+# ---------------------------------------------------------------------
+# Helpers — legacy stdout reconstruction
+# ---------------------------------------------------------------------
 
+def _make_progress_callback():
+    """Build the inline callback that prints block B (per-chunk progress).
 
-def find_frame_end(buf, frame_start):
+    Mirrors the legacy ``print(...)`` invocation at lines 206-212 of
+    the pre-refactor script.  Format quirks preserved:
+
+    * 2-space indent before ``chunk#``
+    * percentage with width 5, one decimal (``{:5.1f}``)
+    * GB read with width 5, two decimals (``{:5.2f}``)
+    * ``frames`` and ``normal`` use the thousands separator
+    * ``silence`` and ``unhandled`` do NOT use the thousands separator
+    * ``audio={V:.1f}MB`` has no space between the value and ``MB``
+    * ``flush=True`` to keep the progress visible under tee/log pipes
     """
-    Walks NAL units within a video access unit and returns the offset
-    just after the last NAL of that frame (i.e. the start of the next
-    gap region). Returns None if the frame would overrun the buffer.
+
+    def _callback(event: AudioProgressEvent) -> None:
+        pct = 100.0 * event.bytes_read / event.total_bytes
+        gb = event.bytes_read / (1024 ** 3)
+        audio_mb = event.audio_bytes / (1024 ** 2)
+        print(
+            f"  chunk#{event.chunk_num} {pct:5.1f}%  ({gb:5.2f} GB read)  "
+            f"frames={event.frames:,}  "
+            f"normal={event.normal_chunks:,}  "
+            f"silence={event.silence_inserted}  "
+            f"unhandled={event.unhandled_count}  "
+            f"audio={audio_mb:.1f}MB",
+            flush=True,
+        )
+
+    return _callback
+
+
+def _print_header(input_path: str, output_path: str, input_size: int) -> None:
+    """Block A: header + blank line.
+
+    Matches legacy lines 157-162.  Quirks preserved:
+
+    * ``Input:`` is followed by TWO spaces (visual alignment with
+      ``Output:`` which has ONE space)
+    * ``Total size to scan:`` uses ``.2f`` precision in GB
+    * ``Chunk size:`` and ``fallback overlap`` both use ``.0f`` in MB
     """
-    p = frame_start
-    while p + 5 < len(buf):
-        if p != frame_start and buf.startswith(AUD_ANCHOR, p):
-            return p
-        if p + 4 > len(buf):
-            return None
-        ln = read_u32be(buf, p)
-        if ln < MIN_NAL_SIZE or ln > MAX_NAL_SIZE:
-            return p
-        if p + 4 + ln > len(buf):
-            return None
-        hdr = buf[p + 4]
-        if not is_valid_nal_header(hdr):
-            return p
-        nt = hdr & 0x1F
-        if p == frame_start and nt != 9:
-            return None
-        p += 4 + ln
-    return None
-
-
-def process_buffer(buf, buf_file_offset, out_file, state):
-    first_aud = buf.find(AUD_ANCHOR)
-    if first_aud == -1:
-        return max(0, len(buf) - OVERLAP)
-
-    pos = first_aud
-    last_processed_end = pos
-
-    while pos >= 0 and pos < len(buf) - 6:
-        frame_start = pos
-
-        frame_end = find_frame_end(buf, frame_start)
-        if frame_end is None:
-            return frame_start
-
-        search_start = max(frame_end, frame_start + 6)
-        next_pos = buf.find(AUD_ANCHOR, search_start)
-        if next_pos == -1:
-            return frame_start
-
-        gap_size = next_pos - frame_end
-
-        if gap_size == 0:
-            state['gap_zero'] += 1
-
-        elif 90000 <= gap_size <= 95000:
-            # Normal audio chunk: keep first 92160 bytes, drop last 48.
-            audio_start = frame_end
-            audio_end = next_pos - TIMECODE_SIZE
-            audio_data = buf[audio_start:audio_end]
-            out_file.write(audio_data)
-            state['audio_bytes'] += len(audio_data)
-            state['normal_chunks'] += 1
-            state['last_audio_at_frame'] = state['frames']
-
-        else:
-            # Anomalous gap.
-            frames_since_last_audio = state['frames'] - state['last_audio_at_frame']
-            file_offset = buf_file_offset + frame_end
-
-            if frames_since_last_audio == 12:
-                # Anomaly hits exactly where an audio chunk was expected.
-                # Inject silence to keep audio timeline aligned with video.
-                out_file.write(SILENCE_BLOCK)
-                state['audio_bytes'] += EXPECTED_AUDIO_PAYLOAD
-                state['silence_inserted'] += 1
-                state['last_audio_at_frame'] = state['frames']
-                state['handled_anomalies'].append({
-                    'frame_idx': state['frames'],
-                    'gap_size': gap_size,
-                    'file_offset': file_offset,
-                })
-            else:
-                # Anomaly off-cycle: log only, do not silence-pad blindly.
-                state['unhandled_anomalies'].append({
-                    'frame_idx': state['frames'],
-                    'gap_size': gap_size,
-                    'file_offset': file_offset,
-                    'frames_since_last_audio': frames_since_last_audio,
-                })
-
-        state['frames'] += 1
-        last_processed_end = next_pos
-
-        if next_pos <= frame_start:
-            return last_processed_end
-        pos = next_pos
-
-    return last_processed_end
-
-
-def extract(input_path, output_raw):
-    total_size = os.path.getsize(input_path)
-
+    gb = input_size / (1024 ** 3)
+    chunk_mb = DEFAULT_CHUNK_SIZE / (1024 ** 2)
+    overlap_mb = DEFAULT_OVERLAP / (1024 ** 2)
     print(f"Input:  {input_path}")
-    print(f"Output: {output_raw}")
-    print(f"Total size to scan: {total_size / (1024 ** 3):.2f} GB")
-    print(f"Chunk size: {CHUNK_SIZE / (1024 ** 2):.0f} MB, "
-          f"fallback overlap {OVERLAP / (1024 ** 2):.0f} MB")
+    print(f"Output: {output_path}")
+    print(f"Total size to scan: {gb:.2f} GB")
+    print(
+        f"Chunk size: {chunk_mb:.0f} MB, "
+        f"fallback overlap {overlap_mb:.0f} MB"
+    )
     print()
 
-    state = {
-        'frames': 0,
-        'normal_chunks': 0,
-        'silence_inserted': 0,
-        'audio_bytes': 0,
-        'gap_zero': 0,
-        'last_audio_at_frame': -1,
-        'handled_anomalies': [],
-        'unhandled_anomalies': [],
-    }
 
-    with open(input_path, "rb") as fin, open(output_raw, "wb") as fout:
-        file_pos = 0
-        tail_buf = b""
-        tail_file_offset = 0
-        chunk_num = 0
+def _print_footer(result: AudioExtractionResult) -> None:
+    """Block C: separator + DONE + counter summary + blank.
 
-        while file_pos < total_size:
-            to_read = min(CHUNK_SIZE, total_size - file_pos)
-            fin.seek(file_pos)
-            chunk = fin.read(to_read)
+    Matches legacy lines 214-227.  Quirks preserved:
 
-            buf_file_offset = tail_file_offset if tail_buf else file_pos
-            buf = tail_buf + chunk
-            chunk_num += 1
-
-            last_end = process_buffer(buf, buf_file_offset, fout, state)
-
-            if last_end >= len(buf):
-                tail_buf = b""
-            else:
-                tail_buf = buf[last_end:]
-                tail_file_offset = buf_file_offset + last_end
-
-            if len(tail_buf) > 2 * OVERLAP:
-                tail_buf = tail_buf[-OVERLAP:]
-                tail_file_offset = buf_file_offset + (len(buf) - len(tail_buf))
-
-            file_pos += to_read
-
-            pct = 100.0 * file_pos / total_size
-            gb = file_pos / (1024 ** 3)
-            print(f"  chunk#{chunk_num} {pct:5.1f}%  ({gb:5.2f} GB read)  "
-                  f"frames={state['frames']:,}  "
-                  f"normal={state['normal_chunks']:,}  "
-                  f"silence={state['silence_inserted']}  "
-                  f"unhandled={len(state['unhandled_anomalies'])}  "
-                  f"audio={state['audio_bytes'] / (1024 ** 2):.1f}MB",
-                  flush=True)
-
+    * Separator is ``=`` repeated **70** times (NOT 60 like video)
+    * Leading ``\\n`` before the first separator: the per-chunk
+      progress block does not emit its own trailing blank, so the
+      footer adds one for visual separation
+    * Most labels are padded to 31 characters, but
+      ``Total audio chunks (effective):`` is already 31 chars then
+      one space, so it totals 32 (legacy asymmetry, preserved)
+    * ``Frames scanned``, ``Zero gaps``, ``Normal audio chunks``,
+      ``Audio bytes``, and ``Total audio chunks (effective)`` use the
+      thousands separator
+    * ``Silence chunks inserted`` and ``Unhandled anomalies`` do NOT
+      use the thousands separator
+    * ``Audio bytes`` uses ``.2f`` MB precision (NOT ``.1f`` like the
+      progress line)
+    """
+    audio_mb = result.audio_bytes / (1024 ** 2)
     print("\n" + "=" * 70)
     print("DONE")
     print("=" * 70)
-    total_chunks = state['normal_chunks'] + state['silence_inserted']
-    print(f"Frames scanned:                {state['frames']:,}")
-    print(f"Zero gaps (no audio):          {state['gap_zero']:,}")
-    print(f"Normal audio chunks:           {state['normal_chunks']:,}")
-    print(f"Silence chunks inserted:       {state['silence_inserted']}")
-    print(f"Unhandled anomalies:           {len(state['unhandled_anomalies'])}")
-    print(f"Total audio chunks (effective): {total_chunks:,}")
-    print(f"Audio bytes:                   {state['audio_bytes']:,} "
-          f"({state['audio_bytes'] / (1024 ** 2):.2f} MB)")
-    print(f"audio_bytes % 4 = {state['audio_bytes'] % 4} (must be 0)")
+    print(f"Frames scanned:                {result.frames:,}")
+    print(f"Zero gaps (no audio):          {result.gap_zero:,}")
+    print(f"Normal audio chunks:           {result.normal_chunks:,}")
+    print(f"Silence chunks inserted:       {result.silence_inserted}")
+    print(f"Unhandled anomalies:           {result.unhandled_count}")
+    print(
+        f"Total audio chunks (effective): "
+        f"{result.total_effective_chunks:,}"
+    )
+    print(
+        f"Audio bytes:                   {result.audio_bytes:,} "
+        f"({audio_mb:.2f} MB)"
+    )
+    print(f"audio_bytes % 4 = {result.audio_bytes_mod_4} (must be 0)")
     print()
 
-    video_duration = state['frames'] / 25.0
-    audio_duration = state['audio_bytes'] / 192000
-    drift = audio_duration - video_duration
-    print(f"Video duration:        {video_duration:.3f} sec")
-    print(f"Audio duration:        {audio_duration:.3f} sec")
-    print(f"Drift (audio - video): {drift:+.3f} sec")
+
+def _print_drift(result: AudioExtractionResult) -> None:
+    """Block D: drift diagnostic + blank.
+
+    Matches legacy lines 232-235.  Quirks preserved:
+
+    * Labels padded to 23 characters (NOT 31 like the footer)
+    * Durations use ``.3f`` precision in seconds
+    * Drift uses ``:+.3f`` to ALWAYS show an explicit sign
+      (drift = 0.0 prints as ``+0.000``, not ``0.000``)
+    """
+    print(f"Video duration:        {result.video_duration_sec:.3f} sec")
+    print(f"Audio duration:        {result.audio_duration_sec:.3f} sec")
+    print(f"Drift (audio - video): {result.drift_sec:+.3f} sec")
     print()
 
-    if state['handled_anomalies']:
+
+def _print_anomalies(result: AudioExtractionResult) -> None:
+    """Blocks E and F: anomaly lists, both conditional.
+
+    Matches legacy lines 237-249.  Quirks preserved:
+
+    * Block E (handled): header + N rows + **trailing blank line**
+    * Block F (unhandled): header + N rows + **NO trailing blank**
+      (legacy asymmetry — F is the last output of the program)
+    * Row format for both:
+        - 2-space indent
+        - ``frame {N:>6,}`` right-aligned width 6 with thousands sep
+        - ``gap_size={N:>9,}`` right-aligned width 9 with thousands sep
+        - ``offset=0x{N:X}`` uppercase hex, no width padding
+    * Block F adds ``frames_since_last_audio={N}`` (no padding, no
+      thousands separator) between gap_size and offset
+    """
+    if result.handled_anomalies:
         print("--- HANDLED ANOMALIES (silence injected) ---")
-        for a in state['handled_anomalies']:
-            print(f"  frame {a['frame_idx']:>6,}  gap_size={a['gap_size']:>9,}  "
-                  f"offset=0x{a['file_offset']:X}")
+        for a in result.handled_anomalies:
+            print(
+                f"  frame {a.frame_idx:>6,}  "
+                f"gap_size={a.gap_size:>9,}  "
+                f"offset=0x{a.file_offset:X}"
+            )
         print()
-
-    if state['unhandled_anomalies']:
+    if result.unhandled_anomalies:
         print("--- UNHANDLED ANOMALIES (NOT injected, investigate) ---")
-        for a in state['unhandled_anomalies']:
-            print(f"  frame {a['frame_idx']:>6,}  gap_size={a['gap_size']:>9,}  "
-                  f"frames_since_last_audio={a['frames_since_last_audio']}  "
-                  f"offset=0x{a['file_offset']:X}")
+        for a in result.unhandled_anomalies:
+            print(
+                f"  frame {a.frame_idx:>6,}  "
+                f"gap_size={a.gap_size:>9,}  "
+                f"frames_since_last_audio={a.frames_since_last_audio}  "
+                f"offset=0x{a.file_offset:X}"
+            )
+
+
+# ---------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------
+
+def main(argv: list[str]) -> int:
+    """Legacy CLI entry point.
+
+    Returns 0 on success, 1 on usage error.  The legacy script printed
+    its usage message to stdout (not stderr); this is preserved here.
+    """
+    if len(argv) != 3:
+        print(
+            "Usage: python3 extract_audio_gh5s_fhd25_alli.py "
+            "<input.mdt> <output.raw>"
+        )
+        return 1
+
+    input_path = argv[1]
+    output_path = argv[2]
+    input_size = os.path.getsize(input_path)
+
+    _print_header(input_path, output_path, input_size)
+    result = extract_audio(
+        input_path,
+        output_path,
+        progress=_make_progress_callback(),
+    )
+    _print_footer(result)
+    _print_drift(result)
+    _print_anomalies(result)
+
+    return 0
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python3 extract_audio_gh5s_fhd25_alli.py "
-              "<input.mdt> <output.raw>")
-        sys.exit(1)
-
-    extract(sys.argv[1], sys.argv[2])
+    sys.exit(main(sys.argv))
