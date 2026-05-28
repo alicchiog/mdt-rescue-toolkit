@@ -337,9 +337,13 @@ _FFMPEG_RAW_TO_WAV_ARGS: tuple[str, ...] = (
 _FFMPEG_MUX_AV_ARGS: tuple[str, ...] = (
     "-y",
     "-i", "{video_only_mov}",
-    "-i", "{audio_raw}",
+    "-i", "{audio_wav}",
+    "-map", "0:v:0",
+    "-map", "1:a:0",
     "-c:v", "copy",
     "-c:a", "pcm_s16be",
+    "-video_track_timescale", "25000",
+    "-shortest",
     "{out}",
 )
 
@@ -767,7 +771,7 @@ def _run_mux_av(
     ffmpeg_args = ["ffmpeg", *_format_ffmpeg_args(
         _FFMPEG_MUX_AV_ARGS,
         video_only_mov=str(artifacts["video_only_mov"]),
-        audio_raw=str(artifacts["audio_raw"]),
+        audio_wav=str(artifacts["audio_wav"]),
         out=str(artifacts["rescued_mov"]),
     )]
     _run_subprocess(ffmpeg_args, Stage.MUX_AV, log_path)

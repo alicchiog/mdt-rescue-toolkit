@@ -315,13 +315,22 @@ class TestFfmpegArgsBitExact:
         )
 
     def test_mux_av_args_match_sh(self):
-        # recover_gh5s_fhd25_alli.sh lines 315-321:
-        #   ffmpeg -y -i "$video_only_mov" -i "$audio_raw"
-        #     -c:v copy -c:a pcm_s16be "$final_mov"
+        # recover_gh5s_fhd25_alli.sh lines 315-324:
+        #   ffmpeg -y -i "$VIDEO_ONLY_MOV" -i "$AUDIO_WAV"
+        #     -map 0:v:0 -map 1:a:0
+        #     -c:v copy -c:a pcm_s16be
+        #     -video_track_timescale 25000 -shortest
+        #     "$final_mov"
         assert _FFMPEG_MUX_AV_ARGS == (
-            "-y", "-i", "{video_only_mov}",
-            "-i", "{audio_raw}",
-            "-c:v", "copy", "-c:a", "pcm_s16be",
+            "-y",
+            "-i", "{video_only_mov}",
+            "-i", "{audio_wav}",
+            "-map", "0:v:0",
+            "-map", "1:a:0",
+            "-c:v", "copy",
+            "-c:a", "pcm_s16be",
+            "-video_track_timescale", "25000",
+            "-shortest",
             "{out}",
         )
 
