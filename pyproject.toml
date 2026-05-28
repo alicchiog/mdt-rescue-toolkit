@@ -65,3 +65,8 @@ Issues = "https://github.com/alicchiog/mdt-rescue-toolkit/issues"
 where = ["."]
 include = ["mdt_rescue*"]
 exclude = ["scripts*", "tests*", "docs*", "examples*", "profiles*", ".venv*"]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: long-running end-to-end smoke test (requires real input files and MDT_RUN_SMOKE=1)",
+]
