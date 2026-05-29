@@ -2,19 +2,17 @@
 
 > A profile-based recovery toolkit for unfinalized `.MDT` video files.
 
-**Version:** 0.1.0
-**Status:** Experimental
+**Version:** 0.2.0-alpha.1
+**Status:** Alpha
 **Supported profile:** Panasonic GH5S, FHD 1920×1080, 25 fps PAL, H.264 High 4:2:2 Intra, ALL-I 200M
 
 ---
 
 ## Born from a real recovery case
 
-This toolkit was built during a single weekend to rescue a 33 GB `.MDT` file produced by a Panasonic DC-GH5S whose recording was interrupted by the well-known *"Battery Grip of Death"* event during a student podcast (`Fill the Blanc`, Luiss Business School).
+This toolkit was built to rescue a 33 GB `.MDT` file produced by a Panasonic DC-GH5S whose recording was interrupted by the well-known *"Battery Grip of Death"* event.
 
-The file was abandoned by the camera in an unfinalized state: no `moov` atom, no SPS/PPS in headers, just raw AVC-Intra video and PCM audio chunks interleaved with timecodes. Untrunc failed. Commercial tools either didn't recognize the format (`.MDT`) or asked 89€ for a one-shot recovery.
-
-After hours of binary analysis, scripts iterated through several versions, structured tests on 100 MB → 1 GB → full file, we ended up with a complete recovered MOV: **2h 17m... well, actually 23m 33s** of pristine 4:2:2 10-bit video plus its original PCM audio, byte-for-byte identical to what the camera would have written if finalization had succeeded.
+The file was abandoned by the camera in an unfinalized state: no `moov` atom, no SPS/PPS in headers, just raw AVC-Intra video and PCM audio chunks interleaved with timecodes. After hours of binary analysis and structured testing (100 MB → 1 GB → full file), the result was a complete recovered MOV: 23m 33s of pristine 4:2:2 10-bit video plus its original PCM audio, matching the validated recovery baseline used throughout this project.
 
 This toolkit packages what we learned. It is **not a generic `.MDT` recovery tool** — it works only on the exact profile we validated. If your situation matches, it will probably help. If not, it provides a template for analysis.
 
@@ -33,7 +31,7 @@ The toolkit produces:
 
 ---
 
-## Supported profile (v0.1)
+## Supported profile (validated)
 
 This release supports **only one validated profile**:
 
@@ -55,10 +53,21 @@ This release supports **only one validated profile**:
 
 ---
 
+## Two ways to use it
+
+As of v0.2, the same recovery pipeline is available through two entry points that produce **byte-identical output**:
+
+1. **The v0.1 shell CLI** (`recover_gh5s_fhd25_alli.sh`) — the original, battle-tested orchestrator. Still fully supported.
+2. **The v0.2 Python API** (`mdt_rescue.orchestrator.recover()`) — a testable, importable Python layer that composes the same extraction primitives. Suitable for integration into other tools or a future GUI.
+
+For the validated profile, both paths run the same seven-stage pipeline (SPS/PPS extraction → video NAL extraction → prefix concatenation → MOV wrap → audio extraction → mux → verification) and are validated bit-exact against the same baseline.
+
+---
+
 ## Requirements
 
-- macOS or Linux (tested on macOS Sequoia)
-- Python 3.8+
+- macOS or Linux (tested on macOS)
+- Python 3.11+ (the Python API uses `StrEnum`)
 - `ffmpeg` and `ffprobe` (8.0+ recommended)
 - A "sane" reference `.MOV` from the same recording session (or another GH5S file with identical settings)
 - Free disk space: **at least 3× the size of your corrupted `.MDT`** (working files + final output)
@@ -73,16 +82,27 @@ brew install ffmpeg
 ## Installation
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/mdt-rescue-toolkit.git
+git clone https://github.com/alicchiog/mdt-rescue-toolkit.git
 cd mdt-rescue-toolkit
+```
+
+For the shell CLI, make the scripts executable:
+```bash
 chmod +x recover_gh5s_fhd25_alli.sh scripts/verify_output.sh
 ```
 
-No other dependencies. The Python scripts use only the standard library.
+For the Python API, install the package (editable install recommended for development):
+```bash
+pip install -e .
+```
+
+The extraction scripts use only the Python standard library; `ffmpeg`/`ffprobe` are the only external runtime dependencies.
 
 ---
 
 ## Usage
+
+### Shell CLI (v0.1)
 
 ```bash
 ./recover_gh5s_fhd25_alli.sh /path/to/broken.mdt /path/to/sane_reference.mov
@@ -99,16 +119,36 @@ The script will:
 
 **The original `.MDT` file is never modified.** The toolkit only reads from it.
 
+### Python API (v0.2)
+
+```python
+from mdt_rescue.orchestrator import recover
+from mdt_rescue.profiles import GH5S_FHD25_ALLI_200M
+
+result = recover(
+    mdt_path="/path/to/broken.mdt",
+    reference_mov_path="/path/to/sane_reference.mov",
+    profile=GH5S_FHD25_ALLI_200M,
+)
+
+if result.success:
+    print("Rescued:", result.rescued_mov_path)
+```
+
+`recover()` accepts optional `output_dir`, a `progress` callback (receives `ProgressEvent` objects per stage), and a `cancel_token` for cooperative cancellation. It returns a `RecoveryResult` with `success`, `cancelled`, `stages_completed`, the produced `artifacts` mapping, and `rescued_mov_path`.
+
 ### Example
 
 ```bash
-./recover_gh5s_fhd25_alli.sh P1194247.mdt P1194245.MOV
+./recover_gh5s_fhd25_alli.sh P1194247.mdt sane_reference.mov
 ```
 
-After ~30-40 minutes (HDD speed dependent), you will get:
+After the run completes (duration depends heavily on file size and disk speed), you will get:
 
 ```
 recovery_output_P1194247/
+├── P1194247_sane_annexb.h264        # reference converted to Annex-B
+├── P1194247_sps_pps_prefix.h264     # extracted SPS/PPS prefix
 ├── P1194247_video.h264              # extracted H.264 stream
 ├── P1194247_video_with_header.h264  # with SPS/PPS prepended
 ├── P1194247_video_only.mov          # video-only MOV
@@ -117,6 +157,26 @@ recovery_output_P1194247/
 ├── P1194247_RESCUED.mov             # final muxed video+audio
 └── recovery_log.txt                 # log of the run
 ```
+
+---
+
+## Testing
+
+Run the standard test suite (fast, fully mocked, no external files):
+
+```bash
+pytest
+```
+
+The suite covers the engine primitives, the Profile definitions, and the orchestrator. The end-to-end smoke test is gated and skipped by default.
+
+The smoke test exercises the real `recover()` pipeline on actual input files and verifies the output bit-exact against the captured v0.1 baseline. It is opt-in and requires both the input files and an explicit environment variable:
+
+```bash
+MDT_RUN_SMOKE=1 pytest -m slow tests/test_smoke_e2e.py -v
+```
+
+Without `MDT_RUN_SMOKE=1`, or if the input files are absent, the smoke test skips cleanly rather than failing.
 
 ---
 
@@ -129,12 +189,7 @@ The toolkit may fail or produce a broken file if:
 - The corruption is too severe (file truncated near the start, before any video frames)
 - The audio interleaving pattern doesn't match the validated model
 
-In these cases, options:
-
-1. **Try a commercial recovery service.** [Aeroquartet Treasured](https://www.aeroquartet.com/) handled our exact case and would have worked. Around 89 EUR. They offer a free trial that shows you the recovered content before you pay.
-2. **Try [GRAU Video Repair](https://www.video-repair.com/).** Another commercial option for video repair.
-3. **Try [Untrunc](https://github.com/anthwlock/untrunc).** Open source. It did not work for our specific case but may work for other situations.
-4. **Inspect your `.MDT`** with `xxd` and compare to the validated pattern in `profiles/gh5s_fhd25_alli_200m.md`. If the structure differs significantly, this toolkit is not for you.
+If this toolkit can't help your case, commercial recovery services and open-source tools such as [Untrunc](https://github.com/anthwlock/untrunc) may handle other situations. You can also inspect your `.MDT` with `xxd` and compare it to the validated pattern in `profiles/gh5s_fhd25_alli_200m.md`. If the structure differs significantly, this toolkit is not for you.
 
 ---
 
@@ -154,19 +209,31 @@ If your footage is irreplaceable and time-critical, consider a paid recovery ser
 mdt-rescue-toolkit/
 ├── README.md                              # this file
 ├── LICENSE                                # MIT
+├── CHANGELOG.md                           # version history
+├── pyproject.toml                         # package metadata
 ├── .gitignore
-├── recover_gh5s_fhd25_alli.sh             # main orchestration script
-├── scripts/
-│   ├── extract_video_gh5s_fhd25_alli.py   # video NAL extraction (streaming/chunked)
-│   ├── extract_audio_gh5s_fhd25_alli.py   # audio chunk extraction with silence injection
-│   ├── extract_sps_pps.py                 # SPS/PPS extraction from reference
-│   └── verify_output.sh                   # final ffprobe verification
+├── recover_gh5s_fhd25_alli.sh             # v0.1 shell orchestrator
+├── mdt_rescue/                            # v0.2 Python package
+│   ├── __init__.py
+│   ├── profiles.py                        # Profile dataclasses + GH5S_FHD25_ALLI_200M
+│   ├── orchestrator.py                    # recover() public API
+│   └── engine/                            # extraction primitives
+│       ├── sps_pps.py                     # SPS/PPS extraction
+│       ├── video.py                       # video NAL extraction
+│       ├── audio.py                       # audio chunk extraction
+│       └── verify.py                      # ffprobe-based verification
+├── scripts/                               # v0.1 thin CLI wrappers
+│   ├── extract_video_gh5s_fhd25_alli.py
+│   ├── extract_audio_gh5s_fhd25_alli.py
+│   ├── extract_sps_pps.py
+│   └── verify_output.sh
 ├── profiles/
 │   └── gh5s_fhd25_alli_200m.md            # detailed format description
 ├── docs/
 │   ├── recovery_workflow.md               # step-by-step pipeline explanation
 │   ├── troubleshooting.md                 # common failure modes
 │   └── limitations.md                     # what this toolkit does NOT do
+├── tests/                                 # pytest suite + baselines
 └── examples/
     └── commands.md                        # example invocations
 ```
@@ -193,4 +260,4 @@ MIT. See `LICENSE`.
 
 ## Acknowledgments
 
-This toolkit exists thanks to a stubborn refusal to lose a podcast pilot recording. Thanks to all student podcasts everywhere — your "I have a bad feeling about this" moments are why we write tools like this.
+This project was born from a real-world recovery need and from the belief that niche recovery knowledge should be documented, tested, and shared.

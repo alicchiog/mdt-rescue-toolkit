@@ -15,9 +15,11 @@ This package will eventually contain three architectural layers:
 - :mod:`mdt_rescue.gui` — optional PySide6 GUI layer (installed via the
   ``[gui]`` extra). Thin presentation layer over the orchestrator.
 
-At v0.2.0.dev0 only this package skeleton exists. The actual recovery
-logic still lives in the shell + scripts directory of the v0.1.0 release
-and will be migrated incrementally in Phase B.
+As of v0.2.0a1 the engine primitives and orchestrator are implemented
+and validated bit-exact against the v0.1 shell pipeline.  The v0.1
+shell orchestrator (recover_gh5s_fhd25_alli.sh) remains in the
+repository as the reference implementation and is also fully supported.
+The GUI layer is not yet implemented and will follow in a later phase.
 
 Supported recovery profile (v0.1.0, frozen):
     Panasonic DC-GH5S, FHD 1920x1080, 25 fps PAL, AVC-Intra 200 Mbps,
@@ -27,7 +29,7 @@ License: MIT
 Project: https://github.com/alicchiog/mdt-rescue-toolkit
 """
 
-__version__ = "0.2.0.dev0"
+__version__ = "0.2.0a1"
 __author__ = "Gianpiero Alicchio"
 __license__ = "MIT"
 
