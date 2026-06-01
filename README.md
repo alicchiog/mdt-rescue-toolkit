@@ -6,6 +6,8 @@
 **Status:** Alpha
 **Supported profile:** Panasonic GH5S, FHD 1920×1080, 25 fps PAL, H.264 High 4:2:2 Intra, ALL-I 200M
 
+![MDT Rescue Toolkit desktop GUI showing a completed recovery](docs/images/screenshot-main.png)
+
 ---
 
 ## Born from a real recovery case
