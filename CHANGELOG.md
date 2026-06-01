@@ -6,6 +6,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [PEP 440](https://peps.python.org/pep-0440/) for
 version identifiers.
 
+## [0.3.0a1] - 2026-06-01
+
+Adds a functional desktop GUI (PySide6) over the v0.2 recovery engine. The
+GUI produces output byte-identical to the v0.1 shell pipeline, verified by
+an end-to-end run against the captured baseline.
+
+### Added
+- `mdt_rescue.gui` package: a single-window PySide6 desktop GUI with input,
+  action, progress, and output zones (`python -m mdt_rescue.gui`, installed
+  via the `[gui]` extra).
+- `RecoveryWorker` (a `QThread`) runs `recover()` off the GUI thread,
+  relaying progress, success, failure, and cancellation through Qt signals.
+- Live progress display, cooperative cancellation, inline error reporting,
+  and Reveal in Finder / Show log actions for the completed run.
+- A forward-compatible profile selector (one entry for the validated
+  GH5S FHD 25p ALL-I 200M profile).
+- GUI smoke tests and `RecoveryWorker` unit tests (`pytest-qt`); the suite
+  is now 214 passed, 1 skipped.
+- Application screenshot in the README.
+
+### Verified
+- End-to-end: the GUI's recovery produced a rescued MOV byte-identical to
+  the v0.1 baseline (and therefore to the legacy shell pipeline). The GUI,
+  the Python smoke test, and the shell pipeline all yield bit-exact output.
+
+### Known limitations
+- On the cancel path, the "Show log" action stays disabled (the cancel
+  signal carries only the stage name, not the log path). The success and
+  failure paths enable it. To be addressed in a later release.
+
+### Notes
+- Requires Python 3.11+ and the `[gui]` extra (PySide6) for the GUI.
+- The v0.1 shell pipeline and the v0.2 Python API remain unchanged.
+
 ## [0.2.0a1] - 2026-05-28
 
 First alpha of the v0.2 line. The v0.1 shell pipeline is preserved unchanged
@@ -61,5 +95,6 @@ Initial release, as shipped.
 - Validated end-to-end on a real 33 GB `.MDT` file, producing a clean MOV
   byte-for-byte equivalent to a finalized camera recording.
 
+[0.3.0a1]: https://github.com/alicchiog/mdt-rescue-toolkit/releases/tag/v0.3.0-alpha.1
 [0.2.0a1]: https://github.com/alicchiog/mdt-rescue-toolkit/releases/tag/v0.2.0-alpha.1
 [0.1.0]: https://github.com/alicchiog/mdt-rescue-toolkit/releases/tag/v0.1.0

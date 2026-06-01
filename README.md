@@ -2,7 +2,7 @@
 
 > A profile-based recovery toolkit for unfinalized `.MDT` video files.
 
-**Version:** 0.2.0-alpha.1
+**Version:** 0.3.0-alpha.1
 **Status:** Alpha
 **Supported profile:** Panasonic GH5S, FHD 1920×1080, 25 fps PAL, H.264 High 4:2:2 Intra, ALL-I 200M
 
