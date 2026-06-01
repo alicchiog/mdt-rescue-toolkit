@@ -2,16 +2,16 @@
 QThread worker wrapping the recovery pipeline.
 
 Implements the threading model documented in :file:`docs/c0_design.md` §3:
-a :class:`QThread` subclass that will run
+a :class:`QThread` subclass that runs
 :func:`mdt_rescue.orchestrator.recover` off the GUI thread, relaying its
 progress callback and cancel token through Qt signals.
 
-C.0.2 status
+C.0.3 status
 ------------
-This is the scaffold. The signal shape, the :class:`CancelToken` ownership,
-:meth:`_on_progress`, and :meth:`request_cancel` are implemented, but
-:meth:`run` is a deliberate deferred stub -- the real ``recover()`` call
-lands in C.0.3.
+Fully wired. :meth:`RecoveryWorker.run` calls
+:func:`mdt_rescue.orchestrator.recover` on the worker thread and relays its
+outcome through the four signals below. Consumed by
+:class:`mdt_rescue.gui.main_window.MainWindow` (wiring lands in C.0.3.b).
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QThread, Signal
 
-from mdt_rescue.orchestrator import CancelToken, ProgressEvent
+from mdt_rescue.orchestrator import CancelToken, ProgressEvent, recover
 from mdt_rescue.profiles import GH5S_FHD25_ALLI_200M, Profile
 
 
@@ -58,30 +58,54 @@ class RecoveryWorker(QThread):
         self._cancel_token = CancelToken()
 
     def run(self) -> None:
-        """Execute the recovery on the worker thread.
+        """Run the recovery on this worker thread.
 
-        DEFERRED TO C.0.3 -- intentionally unimplemented in the C.0.2
-        scaffold.
+        Calls :func:`mdt_rescue.orchestrator.recover` synchronously (this
+        method runs on the worker thread, so blocking is intended), passing
+        :meth:`_on_progress` as the progress callback and this worker's
+        :class:`CancelToken`.
 
-        When wired in C.0.3, this must call
-        :func:`mdt_rescue.orchestrator.recover` with ``self._on_progress`` as
-        the progress callback and ``self._cancel_token`` as the cancel
-        token, then branch on the returned :class:`RecoveryResult` fields --
-        NOT on caught exceptions:
+        ``recover()`` does not raise for operational errors: it catches
+        ``RecoveryError`` / ``RecoveryCancelledError`` internally and
+        returns a :class:`~mdt_rescue.orchestrator.RecoveryResult` whose
+        fields describe the terminal state. The worker therefore branches
+        on those fields rather than catching exceptions:
 
-        - ``result.success``   -> emit :attr:`finished_ok`
-        - ``result.cancelled`` -> emit :attr:`cancelled_at`
-        - otherwise (``result.error`` is set) -> emit :attr:`failed`
+        - ``result.success``   -> emit :attr:`finished_ok` (carrying result)
+        - ``result.cancelled`` -> emit :attr:`cancelled_at` with the stage
+          name from ``result.stage_failed`` (the orchestrator sets it to the
+          cancelling stage; never ``None`` on the cancel path)
+        - otherwise (``result.error`` is set) -> emit :attr:`failed` with
+          ``result.error.detail`` and ``str(result.log_path)`` (passed
+          through faithfully; the caller decides whether the log file exists
+          before exposing a "Show log" action)
 
-        ``recover()`` catches ``RecoveryError`` / ``RecoveryCancelledError``
-        internally and surfaces them as ``RecoveryResult.error`` /
-        ``RecoveryResult.cancelled``, so the result fields are the primary
-        control flow; a try/except on those exceptions would never fire.
+        Programming bugs (e.g. ``TypeError``) are intentionally NOT caught
+        here; they propagate as an unhandled exception on the thread.
         """
-        raise NotImplementedError(
-            "RecoveryWorker.run() is wired in C.0.3 "
-            "-- see docs/c0_design.md §3"
+        result = recover(
+            mdt_path=self._mdt_path,
+            reference_mov_path=self._ref_path,
+            profile=self._profile,
+            progress=self._on_progress,
+            cancel_token=self._cancel_token,
         )
+        if result.success:
+            self.finished_ok.emit(result)
+        elif result.cancelled:
+            stage_name = (
+                result.stage_failed.value
+                if result.stage_failed is not None
+                else "unknown"
+            )
+            self.cancelled_at.emit(stage_name)
+        else:
+            message = (
+                result.error.detail
+                if result.error is not None
+                else "Recovery failed for an unknown reason."
+            )
+            self.failed.emit(message, str(result.log_path))
 
     def _on_progress(self, event: ProgressEvent) -> None:
         """Progress callback passed to ``recover()``; re-emits as a signal."""
