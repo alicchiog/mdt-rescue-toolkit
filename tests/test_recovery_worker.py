@@ -78,11 +78,13 @@ def test_worker_emits_finished_ok_on_success(qtbot, monkeypatch):
 
 
 def test_worker_emits_cancelled_at_on_cancel(qtbot, monkeypatch):
-    """A cancelled result emits cancelled_at with the stage_failed value."""
+    """A cancelled result emits cancelled_at with (stage value, log path)."""
+    log_path = Path("/tmp/recovery_output_test/recovery_log.txt")
     result = _make_result(
         success=False,
         cancelled=True,
         stage_failed=Stage.MUX_AV,
+        log_path=log_path,
         error=RecoveryCancelledError(detail="cancelled", stage=Stage.MUX_AV),
     )
     monkeypatch.setattr(
@@ -95,7 +97,7 @@ def test_worker_emits_cancelled_at_on_cancel(qtbot, monkeypatch):
         worker.start()
     assert worker.wait(5000)
 
-    assert blocker.args == ["mux_av"]
+    assert blocker.args == [Stage.MUX_AV.value, str(log_path)]
 
 
 def test_worker_emits_failed_on_error(qtbot, monkeypatch):

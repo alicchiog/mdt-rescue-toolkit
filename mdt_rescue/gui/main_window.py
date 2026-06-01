@@ -278,12 +278,16 @@ class MainWindow(QMainWindow):
             bool(log_path) and Path(log_path).is_file()
         )
 
-    def _on_cancelled_at(self, stage: str) -> None:
+    def _on_cancelled_at(self, stage: str, log_path: str) -> None:
+        self._log_path = Path(log_path) if log_path else None
         self.progress_label.setText("Cancelled.")
         self.output_label.setStyleSheet("")
         self.output_label.setText(
             f"⏹ Recovery cancelled at stage {stage}. "
             "Partial files left in the output directory."
+        )
+        self.show_log_button.setEnabled(
+            bool(log_path) and Path(log_path).is_file()
         )
 
     def _on_worker_done(self) -> None:

@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [PEP 440](https://peps.python.org/pep-0440/) for
 version identifiers.
 
+## [Unreleased]
+
+### Fixed
+- The desktop GUI now enables "Show log" on the cancel path: the
+  cancellation signal carries the recovery log path, so the log opens
+  from a cancelled run just as it does on success and failure.
+
 ## [0.3.0a1] - 2026-06-01
 
 Adds a functional desktop GUI (PySide6) over the v0.2 recovery engine. The

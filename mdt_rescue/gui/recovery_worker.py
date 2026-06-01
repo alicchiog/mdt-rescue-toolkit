@@ -36,14 +36,14 @@ class RecoveryWorker(QThread):
         The :class:`~mdt_rescue.orchestrator.RecoveryResult` on success.
     failed(str, str):
         ``(message, log_path)`` on an operational failure.
-    cancelled_at(str):
-        The stage name where a cooperative cancel took effect.
+    cancelled_at(str, str):
+        ``(stage_name, log_path)`` where a cooperative cancel took effect.
     """
 
     progress = Signal(object)       # ProgressEvent
     finished_ok = Signal(object)    # RecoveryResult
     failed = Signal(str, str)       # message, log_path
-    cancelled_at = Signal(str)      # stage name
+    cancelled_at = Signal(str, str)  # stage name, log_path
 
     def __init__(
         self,
@@ -74,7 +74,8 @@ class RecoveryWorker(QThread):
         - ``result.success``   -> emit :attr:`finished_ok` (carrying result)
         - ``result.cancelled`` -> emit :attr:`cancelled_at` with the stage
           name from ``result.stage_failed`` (the orchestrator sets it to the
-          cancelling stage; never ``None`` on the cancel path)
+          cancelling stage; never ``None`` on the cancel path) and
+          ``str(result.log_path)`` so the caller can offer "Show log"
         - otherwise (``result.error`` is set) -> emit :attr:`failed` with
           ``result.error.detail`` and ``str(result.log_path)`` (passed
           through faithfully; the caller decides whether the log file exists
@@ -98,7 +99,7 @@ class RecoveryWorker(QThread):
                 if result.stage_failed is not None
                 else "unknown"
             )
-            self.cancelled_at.emit(stage_name)
+            self.cancelled_at.emit(stage_name, str(result.log_path))
         else:
             message = (
                 result.error.detail
