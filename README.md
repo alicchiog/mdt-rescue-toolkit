@@ -69,7 +69,7 @@ For the validated profile, both paths run the same seven-stage pipeline (SPS/PPS
 ## Requirements
 
 - macOS or Linux (tested on macOS)
-- Python 3.11+ (the Python API uses `StrEnum`)
+- Python 3.11+ — download from [python.org](https://www.python.org/downloads/) (the Python API uses `StrEnum`)
 - `ffmpeg` and `ffprobe` (8.0+ recommended)
 - A "sane" reference `.MOV` from the same recording session (or another GH5S file with identical settings)
 - Free disk space: **at least 3× the size of your corrupted `.MDT`** (working files + final output)
@@ -83,19 +83,47 @@ brew install ffmpeg
 
 ## Installation
 
+### Quick install on macOS
+
+For most users — the desktop GUI:
+
+1. **Install Python 3.11+** from [python.org](https://www.python.org/downloads/): download the macOS installer and double-click the `.pkg`.
+2. **Install ffmpeg** (this provides both `ffmpeg` and `ffprobe`). The simplest way is [Homebrew](https://brew.sh):
+   ```bash
+   brew install ffmpeg
+   ```
+3. **Download the toolkit.** On the [GitHub page](https://github.com/alicchiog/mdt-rescue-toolkit), click the green **Code** button → **Download ZIP**, then unzip. (If you use git: `git clone https://github.com/alicchiog/mdt-rescue-toolkit.git`.)
+4. **Open the Terminal app** and `cd` into the unzipped folder (`cd` means "change directory" — tip: drag the folder onto the Terminal window to paste its path):
+   ```bash
+   cd ~/Downloads/mdt-rescue-toolkit
+   ```
+5. **Create a virtual environment and install** with the GUI extra:
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install -e ".[gui]"
+   ```
+6. **Launch the app:**
+   ```bash
+   python -m mdt_rescue.gui
+   ```
+
+**Troubleshooting**
+- `command not found: python` → use `python3` instead.
+- `ffmpeg not found`, or recovery fails immediately → install ffmpeg (`brew install ffmpeg`) and check that `ffmpeg -version` prints something.
+- macOS blocks the command → for now the toolkit runs from source in the Terminal; a standalone app (download and run, no Terminal) is planned for a future release.
+
+### Shell CLI / Python API only (no GUI)
+
+Skip the `[gui]` extra:
 ```bash
 git clone https://github.com/alicchiog/mdt-rescue-toolkit.git
 cd mdt-rescue-toolkit
+pip install -e .
 ```
-
-For the shell CLI, make the scripts executable:
+For the shell CLI, also make the scripts executable:
 ```bash
 chmod +x recover_gh5s_fhd25_alli.sh scripts/verify_output.sh
-```
-
-For the Python API, install the package (editable install recommended for development):
-```bash
-pip install -e .
 ```
 
 The extraction scripts use only the Python standard library; `ffmpeg`/`ffprobe` are the only external runtime dependencies.
