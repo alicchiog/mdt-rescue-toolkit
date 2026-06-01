@@ -78,7 +78,7 @@ once recovery starts.
 
 ### 2.5 Cancel button (D4 = c)
 
-Enabled only while a recovery is running. Click → `CancelToken.set()` on
+Enabled only while a recovery is running. Click → `CancelToken.cancel()` on
 the worker. No confirmation dialog. The orchestrator is cooperative: it
 stops at the next stage boundary (typically within 1–2 seconds). Partial
 files are left in place in the output directory for inspection.
@@ -136,25 +136,29 @@ class RecoveryWorker(QThread):
         self._cancel_token = CancelToken()
 
     def run(self):
-        try:
-            result = recover(
-                mdt_path=self._mdt_path,
-                reference_mov_path=self._ref_path,
-                profile=self._profile,
-                progress=self._on_progress,
-                cancel_token=self._cancel_token,
-            )
+        # recover() does not raise for operational errors: it catches
+        # RecoveryError / RecoveryCancelledError internally and returns a
+        # RecoveryResult. Branch on the result fields, not on exceptions.
+        result = recover(
+            mdt_path=self._mdt_path,
+            reference_mov_path=self._ref_path,
+            profile=self._profile,
+            progress=self._on_progress,
+            cancel_token=self._cancel_token,
+        )
+        if result.success:
             self.finished_ok.emit(result)
-        except RecoveryCancelledError as exc:
-            self.cancelled_at.emit(exc.stage.value)
-        except RecoveryError as exc:
-            self.failed.emit(str(exc), str(exc.log_path) if hasattr(exc, "log_path") else "")
+        elif result.cancelled:
+            stage = result.stage_failed
+            self.cancelled_at.emit(stage.value if stage is not None else "unknown")
+        else:  # result.error is set
+            self.failed.emit(result.error.detail, str(result.log_path))
 
     def _on_progress(self, event):
         self.progress.emit(event)
 
     def request_cancel(self):
-        self._cancel_token.set()
+        self._cancel_token.cancel()
 ```
 
 Why `QThread` (D6 rationale recap):
