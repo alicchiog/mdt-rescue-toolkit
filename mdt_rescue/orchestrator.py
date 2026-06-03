@@ -57,6 +57,7 @@ from mdt_rescue.engine.sps_pps import extract_and_write_prefix
 from mdt_rescue.engine.verify import verify_mov
 from mdt_rescue.engine.video import extract_video
 from mdt_rescue.profiles import GH5S_FHD25_ALLI_200M, Profile
+from mdt_rescue.runtime import resolve_ffmpeg_binary
 
 if TYPE_CHECKING:
     from mdt_rescue.engine.verify import VerifyResult
@@ -438,13 +439,14 @@ def _run_preflight_deps(
     progress: Callable[[ProgressEvent], None],
     token: CancelToken,
 ) -> None:
-    """Stage 1/4: verify ffmpeg / ffprobe / python3 are on PATH."""
+    """Stage 1/4: verify ffmpeg / ffprobe are available (PATH in dev,
+    bundled binary when frozen)."""
     token.raise_if_set(stage=Stage.PREFLIGHT_DEPS)
     _emit(progress, Stage.PREFLIGHT_DEPS, ProgressStatus.START,
           "Checking dependencies")
     missing: list[str] = [
-        c for c in ("ffmpeg", "ffprobe", "python3")
-        if shutil.which(c) is None
+        tool for tool in ("ffmpeg", "ffprobe")
+        if shutil.which(resolve_ffmpeg_binary(tool)) is None
     ]
     if missing:
         raise RecoveryPreflightError(
@@ -613,7 +615,7 @@ def _run_extract_sps_pps(
 
     _emit(progress, Stage.EXTRACT_SPS_PPS, ProgressStatus.PROGRESS,
           "Converting reference MOV to Annex-B", log_path=log_path)
-    ffmpeg_args = ["ffmpeg", *_format_ffmpeg_args(
+    ffmpeg_args = [resolve_ffmpeg_binary("ffmpeg"), *_format_ffmpeg_args(
         _FFMPEG_REF_TO_ANNEXB_ARGS,
         ref=str(ref),
         out=str(artifacts["sane_annexb"]),
@@ -709,7 +711,7 @@ def _run_wrap_video_mov(
     _emit_step_banner(Stage.WRAP_VIDEO_MOV, log_path)
     _emit(progress, Stage.WRAP_VIDEO_MOV, ProgressStatus.START,
           "Wrapping video into MOV container", log_path=log_path)
-    ffmpeg_args = ["ffmpeg", *_format_ffmpeg_args(
+    ffmpeg_args = [resolve_ffmpeg_binary("ffmpeg"), *_format_ffmpeg_args(
         _FFMPEG_WRAP_VIDEO_MOV_ARGS,
         video_with_header=str(artifacts["video_with_header"]),
         out=str(artifacts["video_only_mov"]),
@@ -746,7 +748,7 @@ def _run_extract_audio(
 
     _emit(progress, Stage.EXTRACT_AUDIO, ProgressStatus.PROGRESS,
           "Converting raw audio to WAV", log_path=log_path)
-    ffmpeg_args = ["ffmpeg", *_format_ffmpeg_args(
+    ffmpeg_args = [resolve_ffmpeg_binary("ffmpeg"), *_format_ffmpeg_args(
         _FFMPEG_RAW_TO_WAV_ARGS,
         audio_raw=str(artifacts["audio_raw"]),
         out=str(artifacts["audio_wav"]),
@@ -768,7 +770,7 @@ def _run_mux_av(
     _emit_step_banner(Stage.MUX_AV, log_path)
     _emit(progress, Stage.MUX_AV, ProgressStatus.START,
           "Muxing final video + audio", log_path=log_path)
-    ffmpeg_args = ["ffmpeg", *_format_ffmpeg_args(
+    ffmpeg_args = [resolve_ffmpeg_binary("ffmpeg"), *_format_ffmpeg_args(
         _FFMPEG_MUX_AV_ARGS,
         video_only_mov=str(artifacts["video_only_mov"]),
         audio_wav=str(artifacts["audio_wav"]),

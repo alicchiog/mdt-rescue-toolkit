@@ -70,6 +70,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Optional, Tuple, Union
 
+from mdt_rescue.runtime import resolve_ffmpeg_binary
+
 
 # ---------------------------------------------------------------------
 # Exceptions
@@ -232,7 +234,7 @@ def _probe_field(input_path: str, stream: str, field_name: str) -> str:
     the shell locale and would not raise on bad bytes either.
     """
     cmd = [
-        "ffprobe",
+        resolve_ffmpeg_binary("ffprobe"),
         "-v", "error",
         "-select_streams", stream,
         "-show_entries", f"stream={field_name}",
@@ -442,7 +444,7 @@ def verify_mov(
     if not path.is_file():
         raise InputNotFoundError(str(input_path))
 
-    if shutil.which("ffprobe") is None:
+    if shutil.which(resolve_ffmpeg_binary("ffprobe")) is None:
         raise FFprobeNotFoundError("ffprobe")
 
     video, audio = probe_streams(path)
