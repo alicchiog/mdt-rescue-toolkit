@@ -6,12 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [PEP 440](https://peps.python.org/pep-0440/) for
 version identifiers.
 
-## [Unreleased]
+## [0.4.0a1] - 2026-06-04
+
+Ships a downloadable, self-contained macOS app: no Python, Homebrew, or a
+separate ffmpeg install required.
+
+### Added
+- Downloadable macOS desktop app: an unsigned `.dmg` (Intel / x86_64)
+  bundling LGPL `ffmpeg`/`ffprobe`. The frozen app recovers a file
+  end-to-end with no system ffmpeg, byte-identical to the v0.1 baseline. On
+  Apple Silicon it runs via Rosetta 2 (macOS may prompt to install Rosetta
+  if it is absent).
+- PyInstaller packaging under `packaging/`: the build spec, a
+  build-from-source LGPL ffmpeg recipe (no GPL, no libx264), the bundled
+  LGPL license + NOTICE, and a `[packaging]` extra.
+- `mdt_rescue.runtime.resolve_ffmpeg_binary`: a single seam that resolves
+  the bundled `ffmpeg`/`ffprobe` when the app is frozen and uses `PATH` in
+  development unchanged.
 
 ### Fixed
 - The desktop GUI now enables "Show log" on the cancel path: the
   cancellation signal carries the recovery log path, so the log opens
   from a cancelled run just as it does on success and failure.
+
+### Notes
+- This release is Intel (x86_64); a Universal2 build is backlog. The app is
+  unsigned -- first launch uses right-click -> Open (see the README).
 
 ## [0.3.0a1] - 2026-06-01
 
@@ -102,6 +122,7 @@ Initial release, as shipped.
 - Validated end-to-end on a real 33 GB `.MDT` file, producing a clean MOV
   byte-for-byte equivalent to a finalized camera recording.
 
+[0.4.0a1]: https://github.com/alicchiog/mdt-rescue-toolkit/releases/tag/v0.4.0-alpha.1
 [0.3.0a1]: https://github.com/alicchiog/mdt-rescue-toolkit/releases/tag/v0.3.0-alpha.1
 [0.2.0a1]: https://github.com/alicchiog/mdt-rescue-toolkit/releases/tag/v0.2.0-alpha.1
 [0.1.0]: https://github.com/alicchiog/mdt-rescue-toolkit/releases/tag/v0.1.0

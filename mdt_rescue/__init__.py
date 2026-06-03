@@ -30,7 +30,7 @@ License: MIT
 Project: https://github.com/alicchiog/mdt-rescue-toolkit
 """
 
-__version__ = "0.3.0a1"
+__version__ = "0.4.0a1"
 __author__ = "Gianpiero Alicchio"
 __license__ = "MIT"
 

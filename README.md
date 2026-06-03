@@ -2,7 +2,7 @@
 
 > A profile-based recovery toolkit for unfinalized `.MDT` video files.
 
-**Version:** 0.3.0-alpha.1
+**Version:** 0.4.0-alpha.1
 **Status:** Alpha
 **Supported profile:** Panasonic GH5S, FHD 1920×1080, 25 fps PAL, H.264 High 4:2:2 Intra, ALL-I 200M
 
@@ -83,9 +83,29 @@ brew install ffmpeg
 
 ## Installation
 
-### Quick install on macOS
+### Download the macOS app (.dmg) — easiest, no terminal
 
-For most users — the desktop GUI:
+For most users: download the app and run it. No Python, Homebrew, or a
+separate ffmpeg install needed.
+
+1. Download `MDT-Rescue-Toolkit-<version>-x86_64.dmg` from the
+   [latest release](https://github.com/alicchiog/mdt-rescue-toolkit/releases).
+2. Open the `.dmg` and drag **MDT Rescue Toolkit** onto the **Applications**
+   folder.
+3. Launch it from Applications. **First launch only:** because the app is not
+   signed with a paid Apple certificate, macOS Gatekeeper blocks a normal
+   double-click. **Right-click (Control-click) the app → Open → Open** in the
+   dialog (or, after a blocked attempt, **System Settings → Privacy &
+   Security → "Open Anyway"**). It is safe to open; this is a one-time step
+   per install.
+
+This is an **Intel (x86_64)** build. On Apple Silicon, this Intel build runs
+via Rosetta 2. If Rosetta is not installed, macOS may prompt you to install
+it.
+
+### Quick install on macOS (from source)
+
+To run the GUI from source:
 
 1. **Install Python 3.11+** from [python.org](https://www.python.org/downloads/): download the macOS installer and double-click the `.pkg`.
 2. **Install ffmpeg** (this provides both `ffmpeg` and `ffprobe`). The simplest way is [Homebrew](https://brew.sh):

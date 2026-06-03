@@ -26,7 +26,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mdt-rescue"
-version = "0.3.0a1"
+version = "0.4.0a1"
 description = "Profile-based recovery toolkit for unfinalized Panasonic .MDT video files"
 readme = "README.md"
 requires-python = ">=3.10"

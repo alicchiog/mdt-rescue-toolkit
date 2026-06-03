@@ -28,6 +28,7 @@ REPO_ROOT = os.path.abspath(os.path.join(SPECPATH, ".."))
 ENTRY = os.path.join(REPO_ROOT, "mdt_rescue", "gui", "__main__.py")
 BIN = os.path.join(SPECPATH, "bin")           # built ffmpeg/ffprobe (gitignored)
 LIC = os.path.join(SPECPATH, "licenses")      # LGPL text + NOTICE (committed)
+ICON = os.path.join(SPECPATH, "assets", "app_icon.icns")  # app icon (committed)
 
 a = Analysis(
     [ENTRY],
@@ -83,7 +84,7 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name="MDT Rescue Toolkit.app",
-    icon=None,                # app icon is a later polish item
+    icon=ICON,                # placeholder app icon (packaging/assets/app_icon.icns)
     bundle_identifier="com.alicchiog.mdt-rescue-toolkit",
     version=APP_VERSION,
 )
