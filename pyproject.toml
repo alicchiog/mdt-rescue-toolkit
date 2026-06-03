@@ -16,6 +16,9 @@
 #
 # To install everything:
 #     pip install -e ".[dev,gui]"
+#
+# To build the macOS .app (PyInstaller, build-only tooling):
+#     pip install -e ".[packaging]"
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]
@@ -55,6 +58,9 @@ dev = [
 ]
 gui = [
     "PySide6>=6.6",
+]
+packaging = [
+    "pyinstaller>=6.0",
 ]
 
 [project.urls]
