@@ -1,15 +1,15 @@
 # packaging/mdt_rescue_gui.spec
 #
-# PyInstaller spec for the MDT Rescue Toolkit desktop GUI (P.2).
+# PyInstaller spec for the MDT Rescue Toolkit desktop GUI.
 #
-# Produces a current-architecture .app that launches and renders the GUI.
-# Per docs/packaging_design.md §8, P.2's gate is "the .app launches and
-# shows the GUI" -- NOT an end-to-end recovery.
+# Produces a current-architecture .app with bundled ffmpeg/ffprobe that
+# recovers a file end-to-end with no system ffmpeg required.
 #
-# ffmpeg/ffprobe are intentionally NOT bundled here; that is P.3. Running a
-# real recovery from the frozen P.2 app is out of scope; because
-# ffmpeg/ffprobe are not bundled yet, recovery is expected to fail preflight.
-# P.3 owns bundled ffmpeg/ffprobe and frozen-app recovery e2e.
+# P.3 bundles LGPL ffmpeg/ffprobe (built from source, no GPL / no libx264;
+# see packaging/licenses/NOTICE.txt) at the freeze root, matching the seam
+# contract mdt_rescue.runtime.resolve_ffmpeg_binary -> <sys._MEIPASS>/<tool>.
+# The binaries must exist at packaging/bin/ before building (built per
+# packaging/README.md; gitignored, never committed).
 #
 # Build (from the repo root):
 #     pip install -e ".[packaging]"
@@ -26,12 +26,22 @@ from mdt_rescue import __version__ as APP_VERSION
 
 REPO_ROOT = os.path.abspath(os.path.join(SPECPATH, ".."))
 ENTRY = os.path.join(REPO_ROOT, "mdt_rescue", "gui", "__main__.py")
+BIN = os.path.join(SPECPATH, "bin")           # built ffmpeg/ffprobe (gitignored)
+LIC = os.path.join(SPECPATH, "licenses")      # LGPL text + NOTICE (committed)
 
 a = Analysis(
     [ENTRY],
     pathex=[REPO_ROOT],
-    binaries=[],          # no ffmpeg/ffprobe yet -- that is P.3
-    datas=[],
+    binaries=[
+        # Bundle at the freeze root (dest ".") so resolve_ffmpeg_binary()
+        # finds them at <sys._MEIPASS>/<tool> in the frozen app.
+        (os.path.join(BIN, "ffmpeg"), "."),
+        (os.path.join(BIN, "ffprobe"), "."),
+    ],
+    datas=[
+        (os.path.join(LIC, "COPYING.LGPLv2.1"), "licenses"),
+        (os.path.join(LIC, "NOTICE.txt"), "licenses"),
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

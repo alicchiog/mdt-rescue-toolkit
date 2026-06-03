@@ -43,6 +43,10 @@ Thumbs.db
 dist/
 build/
 
+# Bundled ffmpeg/ffprobe binaries (large; built from source per
+# packaging/README.md, fetched at build time, never committed)
+packaging/bin/
+
 # Baselines: explicit reference artifacts under tests/baselines/
 # Override the patterns above (*.log, *.raw, *.h264, *.wav, *.mov, *.mp4)
 !tests/baselines/**

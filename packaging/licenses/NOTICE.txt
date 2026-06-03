@@ -1,0 +1,27 @@
+Third-party components bundled in MDT Rescue Toolkit.app
+========================================================
+
+ffmpeg + ffprobe
+----------------
+Version:       8.1.1
+Source:        https://ffmpeg.org/releases/ffmpeg-8.1.1.tar.xz
+Source SHA256: b6863adde98898f42602017462871b5f6333e65aec803fdd7a6308639c52edf3
+License:       LGPL v2.1 or later (see COPYING.LGPLv2.1 in this directory)
+
+Built from source with no GPL components and no libx264:
+
+  ./configure --cc=clang --arch=x86_64 \
+    --disable-gpl --disable-nonfree \
+    --disable-shared --enable-static \
+    --disable-doc --disable-ffplay --disable-x86asm \
+    --disable-xlib --disable-libxcb --disable-lzma
+
+The resulting binaries link only macOS system libraries and frameworks
+(verified with `otool -L`: no /usr/local or other non-system dependencies),
+so they run on a clean macOS install with no Homebrew or separate ffmpeg.
+
+The ffmpeg and ffprobe executables are bundled as standalone programs and
+invoked by the toolkit via subprocess; they are not linked into the
+toolkit's Python/Qt process (mere aggregation). The toolkit's own code is
+MIT-licensed. The bundled ffmpeg/ffprobe binaries remain under their own
+LGPL v2.1 license; their corresponding source is the release above.
