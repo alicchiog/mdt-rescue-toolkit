@@ -50,6 +50,10 @@ __all__ = [
     "ExtractionPattern",
     "Profile",
     "GH5S_FHD25_ALLI_200M",
+    "DEFAULT_PROFILE",
+    "PROFILES",
+    "get_profile",
+    "UnknownProfileError",
 ]
 
 
@@ -257,3 +261,65 @@ Validated end-to-end on a real 33 GB Panasonic GH5S .MDT file
 (P1194247.mdt) in v0.1.0; all extraction constants in
 :mod:`mdt_rescue.engine.audio` match the values in this profile.
 """
+
+
+class UnknownProfileError(ValueError):
+    """Raised by :func:`get_profile` when no profile matches the name.
+
+    Subclasses :class:`ValueError` because a failed lookup is an
+    API/registry usage error, **not** a recovery failure. It deliberately
+    does *not* inherit from ``RecoveryError``: :func:`mdt_rescue.
+    orchestrator.recover` only catches ``RecoveryError``, so an unknown
+    profile must propagate rather than be absorbed by the recovery
+    pipeline.
+    """
+
+
+DEFAULT_PROFILE: Profile = GH5S_FHD25_ALLI_200M
+"""The default recovery profile.
+
+Identical object to :data:`GH5S_FHD25_ALLI_200M` (the single validated
+profile). This is the value :func:`mdt_rescue.orchestrator.recover` uses
+when no ``profile`` is supplied.
+"""
+
+
+PROFILES: dict[str, Profile] = {
+    DEFAULT_PROFILE.name: DEFAULT_PROFILE,
+}
+"""Registry of known recovery profiles, keyed by :attr:`Profile.name`.
+
+Contains exactly one entry: the validated :data:`GH5S_FHD25_ALLI_200M`.
+No camera profile is listed here without a validated sample and bit-exact
+regression coverage.
+"""
+
+
+def get_profile(name: str) -> Profile:
+    """Return the registered :class:`Profile` named ``name``.
+
+    Parameters
+    ----------
+    name:
+        The profile identifier (:attr:`Profile.name`), e.g.
+        ``"GH5S_FHD25_ALLI_200M"``.
+
+    Returns
+    -------
+    Profile
+        The canonical registered profile object (same identity as the
+        corresponding module-level constant, not a copy).
+
+    Raises
+    ------
+    UnknownProfileError
+        If no profile with that name is registered. The message includes
+        the requested ``name`` and the set of known profiles.
+    """
+    try:
+        return PROFILES[name]
+    except KeyError:
+        raise UnknownProfileError(
+            f"Unknown recovery profile {name!r}; "
+            f"known profiles: {sorted(PROFILES)}"
+        ) from None

@@ -30,6 +30,9 @@ from mdt_rescue.engine.audio import (
     EXPECTED_GAP_SIZE as ENGINE_AUDIO_GAP,
     TIMECODE_SIZE as ENGINE_TIMECODE_SIZE,
 )
+from mdt_rescue.engine.video import (
+    AUD_ANCHOR as ENGINE_VIDEO_AUD_ANCHOR,
+)
 from mdt_rescue.engine.verify import (
     EXPECTATIONS_GH5S_FHD25,
     PlausibilityExpectations,
@@ -105,6 +108,30 @@ class TestGH5SExtractionPattern:
             GH5S_FHD25_ALLI_200M.extraction.audio_chunk_interval_frames
             == 12
         )
+
+
+class TestAudAnchorCrossConsistency:
+    """E.extraction-pattern: the AUD anchor is duplicated in three places
+    (profiles.py, engine.audio, engine.video). The profile<->engine.audio
+    pair is already locked above; this closes the previously unguarded
+    third copy in engine.video. Pure consistency guard -- it changes no
+    engine behavior. ``==`` is correct here (comparing ``bytes``).
+    """
+
+    def test_audio_engine_anchor_matches_profile(self):
+        assert (
+            ENGINE_AUDIO_AUD_ANCHOR
+            == GH5S_FHD25_ALLI_200M.extraction.aud_anchor
+        )
+
+    def test_video_engine_anchor_matches_profile(self):
+        assert (
+            ENGINE_VIDEO_AUD_ANCHOR
+            == GH5S_FHD25_ALLI_200M.extraction.aud_anchor
+        )
+
+    def test_audio_and_video_engine_anchors_match(self):
+        assert ENGINE_AUDIO_AUD_ANCHOR == ENGINE_VIDEO_AUD_ANCHOR
 
 
 class TestDerivedProperties:
@@ -216,5 +243,9 @@ class TestModuleSurface:
             "ExtractionPattern",
             "Profile",
             "GH5S_FHD25_ALLI_200M",
+            "DEFAULT_PROFILE",
+            "PROFILES",
+            "get_profile",
+            "UnknownProfileError",
         }
         assert set(profiles.__all__) == expected
