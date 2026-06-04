@@ -92,12 +92,21 @@ separate ffmpeg install needed.
    [latest release](https://github.com/alicchiog/mdt-rescue-toolkit/releases).
 2. Open the `.dmg` and drag **MDT Rescue Toolkit** onto the **Applications**
    folder.
-3. Launch it from Applications. **First launch only:** because the app is not
-   signed with a paid Apple certificate, macOS Gatekeeper blocks a normal
-   double-click. **Right-click (Control-click) the app → Open → Open** in the
-   dialog (or, after a blocked attempt, **System Settings → Privacy &
-   Security → "Open Anyway"**). It is safe to open; this is a one-time step
-   per install.
+3. Launch it from Applications. **First launch only:** the app is
+   **ad-hoc signed but not notarized** (it has no paid Apple Developer ID
+   and has not been through Apple's notarization), so macOS Gatekeeper may
+   block the first launch with a message that it can't be checked for
+   malicious software. On recent macOS versions the older
+   **Right-click (Control-click) → Open** trick may **not** be enough.
+   The reliable path is:
+
+   **System Settings → Privacy & Security → "Open Anyway"**
+   (in Italian: **Impostazioni di Sistema → Privacy e Sicurezza →
+   "Apri comunque"**).
+
+   After a blocked launch, open that pane, click **Open Anyway** next to the
+   app name, and confirm. From then on the app opens normally — this is a
+   one-time step per install.
 
 This is an **Intel (x86_64)** build. On Apple Silicon, this Intel build runs
 via Rosetta 2. If Rosetta is not installed, macOS may prompt you to install
